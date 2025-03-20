@@ -4,12 +4,11 @@ const jwt = require("jsonwebtoken");
 const { loginUser, registerUser } = require('../controllers/authController');
 const { isLoggedIn } = require("../middlewares/isLoggedIn");
 const userModel = require("../models/userModel");
-const multer = require("multer");
+const upload = require("../middlewares/multer");
 const dotenv = require("dotenv");
 const {geminiController} = require("../controllers/geminiController");
 
 dotenv.config();
-const upload = multer();  
 
 // let analyzeCareer;
 // // Dynamic import of the ES module
@@ -30,8 +29,12 @@ router.post("/upload", upload.single("image"), (req, res) => {
     console.log("File not received");
     return res.status(400).json({ error: "No file uploaded" });
   }
-  console.log("File uploaded");
-  res.json({ imageUrl: req.file.path }); // Cloudinary URL
+  console.log("File uploaded successfully");
+  res.json({ 
+    success: true,
+    imageUrl: req.file.path,
+    message: "File uploaded successfully"
+  });
 });
 
 module.exports = router;
