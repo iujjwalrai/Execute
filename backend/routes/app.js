@@ -11,14 +11,25 @@ const upload = multer();
 
 let analyzeCareer;
 // Dynamic import of the ES module
-import('../ai_path.mjs').then(module => {
-    analyzeCareer = module.analyzeCareer;
-}).catch(err => {
-    console.error('Error importing ai_path.mjs:', err);
-});
+// import('../ai_path.mjs').then(module => {
+//     analyzeCareer = module.analyzeCareer;
+// }).catch(err => {
+//     console.error('Error importing ai_path.mjs:', err);
+// });
 
 // Login Routes
 router.post("/login", loginUser);
 
 // Signup Route
 router.post("/signup", registerUser);
+
+router.post("/upload", upload.single("image"), (req, res) => {
+  if (!req.file) {
+    console.log("File not received");
+    return res.status(400).json({ error: "No file uploaded" });
+  }
+  console.log("File uploaded");
+  res.json({ imageUrl: req.file.path }); // Cloudinary URL
+});
+
+module.exports = router;
