@@ -1,16 +1,18 @@
 const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");  
-const { loginUser, registerUser } = require('../controllers/authControllers');
+const { loginUser, registerUser } = require('../controllers/authController');
 const { isLoggedIn } = require("../middlewares/isLoggedIn");
 const userModel = require("../models/userModel");
 const multer = require("multer");
 const dotenv = require("dotenv");
+const {geminiController} = require("../controllers/geminiController");
+
 dotenv.config();
 const upload = multer();  
 
-let analyzeCareer;
-// Dynamic import of the ES module
+// let analyzeCareer;
+// // Dynamic import of the ES module
 // import('../ai_path.mjs').then(module => {
 //     analyzeCareer = module.analyzeCareer;
 // }).catch(err => {
