@@ -8,8 +8,7 @@ const FRAUD_SCORE_THRESHOLD = 0.7;
 
 exports.checkFraud = async (req, res) => {
   try {
-    const { 
-      transaction_id, 
+    const {
       ip,
       amount, 
       payment_mode,
@@ -19,22 +18,22 @@ exports.checkFraud = async (req, res) => {
       state
     } = req.body;
     
+    // Create new transaction with MongoDB's _id as transaction_id
+    const transaction = await Transaction.create({
+      ip,
+      amount,
+      payment_mode,
+      payment_channel,
+      payee_id,
+      payer_id,
+      state,
+      payment: 'pending',  // Default payment status
+      transaction_id: null  // Will be set to _id after creation
+    });
 
-    let transaction = await Transaction.findOne({ transaction_id });
-
-    if (!transaction) {
-      transaction = await Transaction.create({
-        transaction_id,
-        ip,
-        amount,
-        payment_mode,
-        payment_channel,
-        payee_id,
-        payer_id,
-        state,
-        payment: 'pending'  // Default payment status
-      });
-    }
+    // Set transaction_id to MongoDB's _id
+    transaction.transaction_id = transaction._id.toString();
+    await transaction.save();
 
     // Initialize fraud detection variables
     let fraudReason = "No fraud detected";
@@ -78,14 +77,14 @@ exports.checkFraud = async (req, res) => {
 
     // === LOCATION-BASED RULES ===
     // High-risk countries list
-    const highRiskCountries = ["NG", "KP", "IR", "BY", "RU"];
+    const highRiskCountries = ["PK", "US", "IR", "BY", "RU"];
     if (country && highRiskCountries.includes(country)) {
       fraudFlags.push(`Transaction from high-risk country: ${country}`);
       fraudScore += 0.6;
     }
     
     // High-risk states (if transaction is domestic)
-    const highRiskStates = ["lagos", "abuja", "kano"];
+    const highRiskStates = ["Bihar", "Jharkhand", "West Bengal"];
     if (state && highRiskStates.includes(state.toLowerCase())) {
       fraudFlags.push(`Transaction from high-risk state: ${state}`);
       fraudScore += 0.3;
@@ -194,7 +193,7 @@ exports.checkFraud = async (req, res) => {
 
     // Return result with transaction ID in the exact format requested
     return res.status(200).json({
-      transaction_id: transaction_id,
+      transaction_id: transaction.transaction_id,
       is_fraud: isFraud,
       fraud_reason: fraudReason,
       fraud_score: fraudScore,
@@ -203,7 +202,7 @@ exports.checkFraud = async (req, res) => {
   } catch (error) {
     console.error("Fraud detection error:", error);
     return res.status(500).json({
-      transaction_id: req.body.transaction_id || "unknown",
+      transaction_id: "unknown",
       is_fraud: false,
       fraud_reason: "Error processing fraud detection",
       fraud_score: 0,
@@ -254,18 +253,18 @@ async function getUserTransactionHistory(payerId) {
   }
 }
 
-// Function to get failed attempts count
+// Function to get failed attempts count - modified to use payer_id
 async function getFailedAttempts(payerId) {
   try {
-    // Count failed attempts in the last 24 hours
+    // Count failed attempts in the last 24 hours for this payer
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const failedTransactions = await Transaction.find({
+    const failedTransactions = await Transaction.countDocuments({
       payer_id: payerId,
       payment: 'failed',
       date: { $gte: oneDayAgo }
     });
     
-    return failedTransactions.length;
+    return failedTransactions;
   } catch (error) {
     console.error("Error fetching failed attempts:", error);
     return 0;

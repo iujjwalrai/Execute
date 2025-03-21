@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-
+import { Link } from 'react-router-dom';
 function App() {
   const navigate = useNavigate();
   const [paymentData, setPaymentData] = useState({
@@ -93,48 +93,49 @@ function App() {
         amount: paymentData.amount,
         state: paymentData.state,
         ip_address: paymentData.ip,
-        failed_attempts: ruleBasedResponse.data.failed_attempts
+        failed_attempt: ruleBasedResponse.data.failed_attempts
       });
 
       // Store both responses
       setApiResponses({
-        ruleBased: ruleBasedResponse.data,
-        secondRoute: modelResponse.data
+        ruleBased: ruleBasedResponse.data.is_fraud,
+        secondRoute: modelResponse.data.fraudulent
       });
 
-      // Compare responses and make final API call if they match
-      if (JSON.stringify(ruleBasedResponse.data.is) === JSON.stringify(modelResponse.data.is)) {
-        const finalResponse = await axios.post('http://localhost:5000/api/update', {
-          payer_id: paymentData.payer_id,
-          payee_id: paymentData.payee_id,
-          amount: paymentData.amount,
-          transaction_channel: paymentData.transaction_channel,
-          payment_mode: paymentData.payment_mode,
-          ruleBasedResult: ruleBasedResponse.data,
-          secondRouteResult: modelResponse.data
-        });
+      // Make final API call regardless of match (removed the if condition)
+      const finalResponse = await axios.post('http://localhost:5000/api/update', {
+        amount: paymentData.amount,
+        transaction_id: ruleBasedResponse.data.transaction_id,
+        ruleBasedResult: ruleBasedResponse.data.is_fraud,
+        secondRouteResult: modelResponse.data.fraudulent
+      });
 
-        setApiResponses(prev => ({
-          ...prev,
-          finalResult: finalResponse.data
-        }));
-
-        // Navigate to TransactionResult with the transaction details
-        navigate('/result', {
-          state: {
-            transactionDetails: {
-              transaction_id: finalResponse.data.transaction_id,
-              ip: paymentData.ip,
-              country: paymentData.country,
-              amount: paymentData.amount,
-              failed_attempts: ruleBasedResponse.data.failed_attempts,
-              is_fraud: finalResponse.data.is_fraud,
-              dateTime: new Date().toLocaleString(),
-              status: finalResponse.data.is_fraud ? 'Failed' : 'Processed'
-            }
-          }
-        });
+      if(modelResponse.data.fraudulent && ruleBasedResponse.data.is_fraud){
+        await axios.post("http://localhost:5000/api/result", {
+          transaction_id: ruleBasedResponse.data.transaction_id
+        })
       }
+
+      setApiResponses(prev => ({
+        ...prev,
+        finalResult: finalResponse.data
+      }));
+
+      // Navigate to TransactionResult with the transaction details
+      navigate('/result', {
+        state: {
+          transactionDetails: {
+            transaction_id: finalResponse.data.transaction_id || 'N/A',
+            ip: paymentData.ip || 'N/A',
+            country: paymentData.country || 'N/A',
+            amount: Number(paymentData.amount) || 0,
+            failed_attempts: ruleBasedResponse.data.failed_attempts || 0,
+            is_fraud: modelResponse.data.fraudulent && ruleBasedResponse.data.is_fraud,
+            dateTime: new Date().toLocaleString(),
+            status: finalResponse.data.is_fraud ? 'Failed' : 'Processed'
+          }
+        }
+      });
 
     } catch (err) {
       setError(err.message || 'An error occurred while processing your request');
@@ -144,7 +145,15 @@ function App() {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen w-full flex justify-center items-center">
+    <div className='relative'><Link to = "/dash">
+      <button type="submit" className="w-full my-5 mx-5 sm:w-auto bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 text-white font-medium rounded-lg text-sm px-8 py-3.5 text-center transition duration-200 flex items-center justify-center">
+      <span>Proceed to Dashboard</span>
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+      </svg>
+        </button>
+    </Link>
+  <div className="bg-gray-50 min-h-screen w-full flex justify-center items-center">
       <div className="w-full max-w-3xl mx-auto">
         <section id="transaction-form" className="bg-white py-12 px-4 sm:px-6 lg:px-8 rounded-lg shadow-md">
           <div className="text-center mb-12">
@@ -391,7 +400,8 @@ function App() {
           </div>
         </section>
       </div>
-    </div>
+    </div></div>
+   
   );
 }
 

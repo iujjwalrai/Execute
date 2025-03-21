@@ -14,15 +14,10 @@ const fraudReportingSchema = new mongoose.Schema({
         ref: 'Transaction',
         required: true
     },
-    fraud_details: {
+    reporting_entity_id: {
         type: String,
-        required: function() {
-            return this.is_fraud === true;
-        }
-    },
-    fraud_score : {
-        type : Number,
-    },
+        default : "SEBI - ID"
+    }
 }, {
     timestamps: true
 });

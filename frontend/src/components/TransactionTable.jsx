@@ -9,6 +9,7 @@ const TransactionTable = () => {
     transactionId: "",
   });
   const [transactions, setTransactions] = useState([]);
+  const [columns, setColumns] = useState([]);
   const [pagination, setPagination] = useState({
     total: 0,
     page: 1,
@@ -21,18 +22,33 @@ const TransactionTable = () => {
     try {
       setLoading(true);
       const queryParams = new URLSearchParams({
-        ...filters,
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo,
+        payerId: filters.payerId,
+        payeeId: filters.payeeId,
+        transactionId: filters.transactionId,
         page: pagination.page,
         limit: pagination.limit
       });
 
-      const response = await fetch(`/api/transactions?${queryParams}`);
+      const response = await fetch(`http://localhost:5000/api/transactions?${queryParams}`);
+      
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}, body: ${text}`);
+      }
+      
       const data = await response.json();
       
-      setTransactions(data.transactions);
-      setPagination(data.pagination);
+      setTransactions(data.data.transactions);
+      setColumns(data.data.columns);
+      setPagination(data.data.pagination);
     } catch (error) {
       console.error("Error fetching transactions:", error);
+      console.error("Full error details:", {
+        message: error.message,
+        stack: error.stack
+      });
     } finally {
       setLoading(false);
     }
@@ -44,15 +60,16 @@ const TransactionTable = () => {
   }, []);
 
   const handleChange = (e) => {
-    setFilters({ ...filters, [e.target.id]: e.target.value });
+    const id = e.target.id.charAt(0).toLowerCase() + e.target.id.slice(1); // Convert PayerId to payerId
+    setFilters({ ...filters, [id]: e.target.value });
   };
 
-  const handleApplyFilters = () => {
+  const handleApplyFilters = async () => {
     setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
-    fetchTransactions();
+    await fetchTransactions();
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     setFilters({
       dateFrom: "",
       dateTo: "",
@@ -61,12 +78,12 @@ const TransactionTable = () => {
       transactionId: "",
     });
     setPagination(prev => ({ ...prev, page: 1 }));
-    fetchTransactions();
+    await fetchTransactions();
   };
 
-  const handlePageChange = (newPage) => {
+  const handlePageChange = async (newPage) => {
     setPagination(prev => ({ ...prev, page: newPage }));
-    fetchTransactions();
+    await fetchTransactions();
   };
 
   return (
@@ -144,28 +161,17 @@ const TransactionTable = () => {
           </div>
         )}
 
-        {/* Table */}
+        {/* Modified Table */}
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                {[
-                  "Transaction ID",
-                  "Date & Time",
-                  "Amount",
-                  "Payer ID",
-                  "Payee ID",
-                  "Channel",
-                  "Payment Mode",
-                  
-                  "Fraud Predicted ",
-                  "Fraud Sent",
-                ].map((heading) => (
+                {columns.map((column) => (
                   <th
-                    key={heading}
+                    key={column.key}
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase"
                   >
-                    {heading}
+                    {column.label}
                   </th>
                 ))}
               </tr>
@@ -173,44 +179,25 @@ const TransactionTable = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {transactions.map((txn) => (
                 <tr key={txn.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium">{txn.id}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{txn.date}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {txn.amount}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {txn.payer}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {txn.payee}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {txn.channel}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{txn.mode}</td>
-                  
-                  <td className="px-6 py-4">
-                    <span
-                      className={`px-2 inline-flex text-xs font-semibold rounded-full ${
-                        txn.fraudPredicted === "Yes"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-green-100 text-green-800"
-                      }`}
-                    >
-                      {txn.fraudPredicted}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`px-2 inline-flex text-xs font-semibold rounded-full ${
-                        txn.fraudReported === "Yes"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-green-100 text-green-800"
-                      }`}
-                    >
-                      {txn.fraudReported}
-                    </span>
-                  </td>
+                  {columns.map((column) => (
+                    <td key={`${txn.id}-${column.key}`} className="px-6 py-4">
+                      {column.type === 'status' ? (
+                        <span
+                          className={`px-2 inline-flex text-xs font-semibold rounded-full ${
+                            txn[column.key] === "Yes"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-green-100 text-green-800"
+                          }`}
+                        >
+                          {txn[column.key]}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-500">
+                          {txn[column.key]}
+                        </span>
+                      )}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>

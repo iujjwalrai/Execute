@@ -3,13 +3,13 @@ const fraudReportingModel = require('../models/fraud_reporting');
 
 const reportFraud = async (req, res) => {
     try {
-        const { transaction_id, reporting_entity_id, fraud_details } = req.body;
+        const { transaction_id } = req.body;
 
         // Validate required fields
-        if (!transaction_id || !reporting_entity_id || !fraud_details) {
+        if (!transaction_id) {
             return res.status(400).json({
                 success: false,
-                message: "Missing required fields: transaction_id, reporting_entity_id, and fraud_details are required"
+                message: "Missing required fields"
             });
         }
 
@@ -38,8 +38,7 @@ const reportFraud = async (req, res) => {
             transaction_id: transaction._id,
             is_fraud: true,
             is_fraud_reported: true,
-            fraud_details: fraud_details,
-            reporting_entity_id: reporting_entity_id
+            reporting_entity_id: "SEBI - ID"
         });
         await fraudReport.save();
 
@@ -50,8 +49,6 @@ const reportFraud = async (req, res) => {
                 transaction_id: transaction.transaction_id,
                 is_fraud: transaction.is_fraud,
                 is_fraud_reported: transaction.is_fraud_reported,
-                fraud_details: fraud_details,
-                fraud_report_id: fraudReport._id
             }
         });
 

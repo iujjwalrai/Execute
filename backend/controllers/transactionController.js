@@ -1,118 +1,114 @@
-const Transaction = require("../models/transactionModel");
+const Transaction = require('../models/transactionModel'); // You'll need to create this model
 
-exports.getTransactions = async (req, res) => {
+const getTransactions = async (req, res) => {
   try {
-    const { dateFrom, dateTo, payerId, payeeId, transactionId } = req.query;
-    
+    const {
+      dateFrom,
+      dateTo,
+      payerId,
+      payeeId,
+      transactionId,
+      page = 1,
+      limit = 10
+    } = req.query;
+
     // Build filter object
     const filter = {};
-    
-    // Add date range filter
-    if (dateFrom || dateTo) {
-      filter.date = {};
-      if (dateFrom) filter.date.$gte = new Date(dateFrom);
-      if (dateTo) {
-        // Set time to end of day
-        const endDate = new Date(dateTo);
-        endDate.setHours(23, 59, 59, 999);
-        filter.date.$lte = endDate;
-      }
+    if (dateFrom && dateTo) {
+      filter.date = { $gte: new Date(dateFrom), $lte: new Date(dateTo) };
     }
-    
-    // Add other filters if provided
-    if (transactionId) filter.transaction_id = new RegExp(transactionId, 'i');
-    if (payerId) filter.payer_id = new RegExp(payerId, 'i');
-    if (payeeId) filter.payee_id = new RegExp(payeeId, 'i');
-    
-    // Get total count for pagination
-    const totalCount = await Transaction.countDocuments(filter);
-    
-    // Pagination
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    if (payerId) filter.payer_id = payerId;
+    if (payeeId) filter.payee_id = payeeId;
+    if (transactionId) filter.transaction_id = transactionId;
+
+    // Calculate pagination
     const skip = (page - 1) * limit;
     
-    // Fetch transactions with pagination
+    // Get total count
+    const total = await Transaction.countDocuments(filter);
+    
+    // Get transactions
     const transactions = await Transaction.find(filter)
-      .sort({ date: -1 })
       .skip(skip)
-      .limit(limit);
-    
-    // Transform data for frontend
-    const transformedTransactions = transactions.map(transaction => ({
-      id: transaction.transaction_id,
-      date: transaction.date.toISOString().replace('T', ' ').substring(0, 19),
-      amount: `$${transaction.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-      payer: transaction.payer_id,
-      payee: transaction.payee_id,
-      channel: transaction.payment_channel,
-      mode: transaction.payment_mode,
-      fraudPredicted: transaction.is_fraud ? "Yes" : "No",
-      fraudReported: transaction.is_fraud_reported ? "Yes" : "No",
-      fraudScore: transaction.fraud_score
-    }));
-    
-    // Return paginated results
-    res.status(200).json({
-      transactions: transformedTransactions,
-      pagination: {
-        total: totalCount,
-        page,
-        limit,
-        pages: Math.ceil(totalCount / limit)
+      .limit(parseInt(limit))
+      .sort({ date: -1 })
+      .lean()  // Convert to plain JavaScript objects
+      .then(transactions => transactions.map(txn => ({
+        // Transform field names to match frontend expectations
+        id: txn.transaction_id,
+        date: txn.date,
+        amount: txn.amount,
+        payer: txn.payer_id,
+        payee: txn.payee_id,
+        channel: txn.payment_channel,
+        mode: txn.payment_mode,
+        fraudPredicted: txn.is_fraud ? 'Yes' : 'No',
+        fraudReported: txn.is_fraud_reported ? 'Yes' : 'No'
+      })));
+
+    // Define dynamic columns
+    const columns = [
+      { key: 'id', label: 'Transaction ID', type: 'text' },
+      { key: 'date', label: 'Date & Time', type: 'text' },
+      { key: 'amount', label: 'Amount', type: 'text' },
+      { key: 'payer', label: 'Payer ID', type: 'text' },
+      { key: 'payee', label: 'Payee ID', type: 'text' },
+      { key: 'channel', label: 'Channel', type: 'text' },
+      { key: 'mode', label: 'Payment Mode', type: 'text' },
+      { key: 'fraudPredicted', label: 'Fraud Predicted', type: 'status' },
+      { key: 'fraudReported', label: 'Fraud Sent', type: 'status' }
+    ];
+
+    // Send response
+    res.json({
+      data: {
+        transactions,
+        columns,
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          pages: Math.ceil(total / limit)
+        }
       }
     });
+
   } catch (error) {
-    console.error("Error fetching transactions:", error);
-    res.status(500).json({ message: "Failed to fetch transactions", error: error.message });
+    console.error('Error in getTransactions:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 
-exports.getTransactionStats = async (req, res) => {
+const getTransactionStats = async (req, res) => {
   try {
-    // Get overall fraud statistics
-    const totalTransactions = await Transaction.countDocuments();
-    const fraudPredicted = await Transaction.countDocuments({ is_fraud: true });
-    const fraudReported = await Transaction.countDocuments({ is_fraud_reported: true });
-    
-    // Get transaction stats by payment mode
-    const paymentModeStats = await Transaction.aggregate([
+    const stats = await Transaction.aggregate([
       {
         $group: {
-          _id: "$payment_mode",
-          count: { $sum: 1 },
-          fraudCount: { 
-            $sum: { $cond: [{ $eq: ["$is_fraud", true] }, 1, 0] }
+          _id: null,
+          totalTransactions: { $sum: 1 },
+          totalAmount: { $sum: '$amount' },
+          fraudulentTransactions: {
+            $sum: { $cond: [{ $eq: ['$fraudPredicted', 'Yes'] }, 1, 0] }
           }
         }
       }
     ]);
-    
-    // Get transaction stats by channel
-    const channelStats = await Transaction.aggregate([
-      {
-        $group: {
-          _id: "$payment_channel",
-          count: { $sum: 1 },
-          fraudCount: { 
-            $sum: { $cond: [{ $eq: ["$is_fraud", true] }, 1, 0] }
-          }
-        }
+
+    res.json({
+      stats: stats[0] || {
+        totalTransactions: 0,
+        totalAmount: 0,
+        fraudulentTransactions: 0
       }
-    ]);
-    
-    res.status(200).json({
-      overview: {
-        totalTransactions,
-        fraudPredicted,
-        fraudReported,
-        fraudPredictionRate: (fraudPredicted / totalTransactions * 100).toFixed(2)
-      },
-      paymentModeStats,
-      channelStats
     });
+
   } catch (error) {
-    console.error("Error fetching transaction stats:", error);
-    res.status(500).json({ message: "Failed to fetch transaction statistics", error: error.message });
+    console.error('Error in getTransactionStats:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
+};
+
+module.exports = {
+  getTransactions,
+  getTransactionStats
 };

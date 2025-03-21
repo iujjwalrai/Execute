@@ -10,6 +10,7 @@ const jwt = require("jsonwebtoken");
 const {checkFraud} = require("../controllers/ruleBasedController"); 
 const transactionController = require('../controllers/transactionController');
 const { updateController } = require("../controllers/updateController");
+const reportingController = require("../controllers/reportingController");
 // dotenv.config();
 // const upload = multer();  
 // const upload = require("../middlewares/multer");
@@ -62,5 +63,6 @@ router.get('/transactions', transactionController.getTransactions);
 
 router.get('/transactions/stats', transactionController.getTransactionStats);
 
+router.post('/result', reportingController.reportFraud);
 
 module.exports = router;

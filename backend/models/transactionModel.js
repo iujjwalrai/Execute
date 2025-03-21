@@ -3,8 +3,6 @@ const mongoose = require("mongoose");
 const transactionSchema = mongoose.Schema({
     transaction_id: {
         type: String,
-        required: true,
-        unique: true
     },
     failed_attempts: {
         type: Number,
@@ -28,12 +26,12 @@ const transactionSchema = mongoose.Schema({
         enum: ['pending', 'completed', 'failed']
     },
     payee_id: {
-        type: String,
+        type: Number,
         required: true,
         ref: 'Payee'
     },
     payer_id: {
-        type: String,
+        type: Number,
         required: true,
         ref: 'Payer'
     },
