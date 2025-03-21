@@ -48,15 +48,6 @@ const transactionSchema = mongoose.Schema({
     state : {
         type : String,
         required : true
-    },
-    is_fraud : {
-        type : Boolean,
-    },
-    fraud_score : {
-        type : Number,
-    },
-    is_fraud_reported : {
-        type : Boolean,
     }
 });
 
