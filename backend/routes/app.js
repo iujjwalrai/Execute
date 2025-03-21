@@ -10,6 +10,11 @@ const userModel = require("../models/userModel");
 const {checkFraud} = require("../controllers/ruleBasedController"); 
 // dotenv.config();
 // const upload = multer();  
+// const upload = require("../middlewares/multer");
+// const dotenv = require("dotenv");
+// const {geminiController} = require("../controllers/geminiController");
+
+// dotenv.config();
 
 // let analyzeCareer;
 // // Dynamic import of the ES module
@@ -36,5 +41,17 @@ const {checkFraud} = require("../controllers/ruleBasedController");
 
 
 router.post("/ruleBased", checkFraud);
+// router.post("/upload", upload.single("image"), (req, res) => {
+// //   if (!req.file) {
+// //     console.log("File not received");
+// //     return res.status(400).json({ error: "No file uploaded" });
+// //   }
+// //   console.log("File uploaded successfully");
+// //   res.json({ 
+// //     success: true,
+// //     imageUrl: req.file.path,
+// //     message: "File uploaded successfully"
+// //   });
+// // });
 
 module.exports = router;
