@@ -1,15 +1,15 @@
 const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");  
-const { loginUser, registerUser } = require('../controllers/authController');
+// const { loginUser, registerUser } = require('../controllers/authController');
 const { isLoggedIn } = require("../middlewares/isLoggedIn");
 const userModel = require("../models/userModel");
-const multer = require("multer");
-const dotenv = require("dotenv");
-const {geminiController} = require("../controllers/geminiController");
-
-dotenv.config();
-const upload = multer();  
+// const multer = require("multer");
+// const dotenv = require("dotenv");
+// const {geminiController} = require("../controllers/geminiController");
+const {checkFraud} = require("../controllers/ruleBasedController"); 
+// dotenv.config();
+// const upload = multer();  
 
 // let analyzeCareer;
 // // Dynamic import of the ES module
@@ -19,19 +19,22 @@ const upload = multer();
 //     console.error('Error importing ai_path.mjs:', err);
 // });
 
-// Login Routes
-router.post("/login", loginUser);
+// // Login Routes
+// router.post("/login", loginUser);
 
-// Signup Route
-router.post("/signup", registerUser);
+// // Signup Route
+// router.post("/signup", registerUser);
 
-router.post("/upload", upload.single("image"), (req, res) => {
-  if (!req.file) {
-    console.log("File not received");
-    return res.status(400).json({ error: "No file uploaded" });
-  }
-  console.log("File uploaded");
-  res.json({ imageUrl: req.file.path }); // Cloudinary URL
-});
+// router.post("/upload", upload.single("image"), (req, res) => {
+//   if (!req.file) {
+//     console.log("File not received");
+//     return res.status(400).json({ error: "No file uploaded" });
+//   }
+//   console.log("File uploaded");
+//   res.json({ imageUrl: req.file.path }); // Cloudinary URL
+// });
+
+
+router.post("/ruleBased", checkFraud);
 
 module.exports = router;
