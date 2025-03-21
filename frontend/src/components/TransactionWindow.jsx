@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 function App() {
+  const navigate = useNavigate();
   const [paymentData, setPaymentData] = useState({
     payer_id: '',
     payee_id: '',
     amount: '',
     transaction_channel: '',
     payment_mode: '',
+    state: '',
+    ip: '',
   });
 
   const [summary, setSummary] = useState({
@@ -24,6 +28,24 @@ function App() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Fetch IP and geolocation data when component mounts
+  useEffect(() => {
+    const fetchIPData = async () => {
+      try {
+        const response = await axios.get('https://ipapi.co/json/');
+        setPaymentData(prev => ({
+          ...prev,
+          ip: response.data.ip,
+          country: response.data.country_name
+        }));
+      } catch (err) {
+        console.error('Error fetching IP data:', err);
+      }
+    };
+
+    fetchIPData();
+  }, []);
 
   // Update summary when amount changes
   useEffect(() => {
@@ -59,41 +81,59 @@ function App() {
         payer_id: paymentData.payer_id,
         payee_id: paymentData.payee_id,
         amount: paymentData.amount,
-        transaction_channel: paymentData.transaction_channel,
-        payment_mode: paymentData.payment_mode
+        payment_channel: paymentData.transaction_channel,
+        payment_mode: paymentData.payment_mode,
+        state: paymentData.state,
+        ip: paymentData.ip,
       });
 
-      // Second API call
-      const modelResponse = await axios.post('http://localhost:5000/secondRoute', {
+      // Second API call with failed_attempts from first response
+      const modelResponse = await axios.post('http://localhost:5001/predict', {
         payer_id: paymentData.payer_id,
-        payee_id: paymentData.payee_id,
         amount: paymentData.amount,
-        transaction_channel: paymentData.transaction_channel,
-        payment_mode: paymentData.payment_mode
+        state: paymentData.state,
+        ip_address: paymentData.ip,
+        failed_attempts: ruleBasedResponse.data.failed_attempts
       });
 
       // Store both responses
       setApiResponses({
         ruleBased: ruleBasedResponse.data,
-        secondRoute: secondResponse.data
+        secondRoute: modelResponse.data
       });
 
       // Compare responses and make final API call if they match
-      if (JSON.stringify(ruleBasedResponse.data) === JSON.stringify(secondResponse.data)) {
-        const finalResponse = await axios.post('http://localhost:5000/api/finalRoute', {
+      if (JSON.stringify(ruleBasedResponse.data.is) === JSON.stringify(modelResponse.data.is)) {
+        const finalResponse = await axios.post('http://localhost:5000/api/update', {
           payer_id: paymentData.payer_id,
           payee_id: paymentData.payee_id,
           amount: paymentData.amount,
           transaction_channel: paymentData.transaction_channel,
           payment_mode: paymentData.payment_mode,
           ruleBasedResult: ruleBasedResponse.data,
-          secondRouteResult: secondResponse.data
+          secondRouteResult: modelResponse.data
         });
 
         setApiResponses(prev => ({
           ...prev,
           finalResult: finalResponse.data
         }));
+
+        // Navigate to TransactionResult with the transaction details
+        navigate('/result', {
+          state: {
+            transactionDetails: {
+              transaction_id: finalResponse.data.transaction_id,
+              ip: paymentData.ip,
+              country: paymentData.country,
+              amount: paymentData.amount,
+              failed_attempts: ruleBasedResponse.data.failed_attempts,
+              is_fraud: finalResponse.data.is_fraud,
+              dateTime: new Date().toLocaleString(),
+              status: finalResponse.data.is_fraud ? 'Failed' : 'Processed'
+            }
+          }
+        });
       }
 
     } catch (err) {
@@ -229,62 +269,61 @@ function App() {
                 </div>
 
                 <div className="mb-8 w-full">
-  <h2 className="text-xl font-semibold text-gray-800 mb-4">Select State</h2>
-  <div>
-    <label 
-      htmlFor="transaction_channel" 
-      className="block text-sm font-medium text-gray-700 mb-1"
-    >
-      Enter Your State
-    </label>
-    <select 
-      id="transaction_channel" 
-      name="transaction_channel" 
-      className="block w-full py-3 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-      value={paymentData.transaction_channel}
-      onChange={handleInputChange}
-    >
-      <option value="">Select State</option>
-      <option value="Andhra Pradesh">Andhra Pradesh</option>
-      <option value="Arunachal Pradesh">Arunachal Pradesh</option>
-      <option value="Assam">Assam</option>
-      <option value="Bihar">Bihar</option>
-      <option value="Chhattisgarh">Chhattisgarh</option>
-      <option value="Goa">Goa</option>
-      <option value="Gujarat">Gujarat</option>
-      <option value="Haryana">Haryana</option>
-      <option value="Himachal Pradesh">Himachal Pradesh</option>
-      <option value="Jharkhand">Jharkhand</option>
-      <option value="Karnataka">Karnataka</option>
-      <option value="Kerala">Kerala</option>
-      <option value="Madhya Pradesh">Madhya Pradesh</option>
-      <option value="Maharashtra">Maharashtra</option>
-      <option value="Manipur">Manipur</option>
-      <option value="Meghalaya">Meghalaya</option>
-      <option value="Mizoram">Mizoram</option>
-      <option value="Nagaland">Nagaland</option>
-      <option value="Odisha">Odisha</option>
-      <option value="Punjab">Punjab</option>
-      <option value="Rajasthan">Rajasthan</option>
-      <option value="Sikkim">Sikkim</option>
-      <option value="Tamil Nadu">Tamil Nadu</option>
-      <option value="Telangana">Telangana</option>
-      <option value="Tripura">Tripura</option>
-      <option value="Uttar Pradesh">Uttar Pradesh</option>
-      <option value="Uttarakhand">Uttarakhand</option>
-      <option value="West Bengal">West Bengal</option>
-      <option value="Andaman and Nicobar Islands">Andaman and Nicobar Islands</option>
-      <option value="Chandigarh">Chandigarh</option>
-      <option value="Dadra and Nagar Haveli and Daman and Diu">Dadra and Nagar Haveli and Daman and Diu</option>
-      <option value="Lakshadweep">Lakshadweep</option>
-      <option value="Delhi">Delhi</option>
-      <option value="Puducherry">Puducherry</option>
-      <option value="Ladakh">Ladakh</option>
-      <option value="Jammu and Kashmir">Jammu and Kashmir</option>
-    </select>
-  </div>
-</div>
-
+                  <h2 className="text-xl font-semibold text-gray-800 mb-4">Select State</h2>
+                  <div>
+                    <label 
+                      htmlFor="state" 
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                      Enter Your State
+                    </label>
+                    <select 
+                      id="state" 
+                      name="state" 
+                      className="block w-full py-3 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      value={paymentData.state}
+                      onChange={handleInputChange}
+                    >
+                      <option value="">Select State</option>
+                      <option value="Andhra Pradesh">Andhra Pradesh</option>
+                      <option value="Arunachal Pradesh">Arunachal Pradesh</option>
+                      <option value="Assam">Assam</option>
+                      <option value="Bihar">Bihar</option>
+                      <option value="Chhattisgarh">Chhattisgarh</option>
+                      <option value="Goa">Goa</option>
+                      <option value="Gujarat">Gujarat</option>
+                      <option value="Haryana">Haryana</option>
+                      <option value="Himachal Pradesh">Himachal Pradesh</option>
+                      <option value="Jharkhand">Jharkhand</option>
+                      <option value="Karnataka">Karnataka</option>
+                      <option value="Kerala">Kerala</option>
+                      <option value="Madhya Pradesh">Madhya Pradesh</option>
+                      <option value="Maharashtra">Maharashtra</option>
+                      <option value="Manipur">Manipur</option>
+                      <option value="Meghalaya">Meghalaya</option>
+                      <option value="Mizoram">Mizoram</option>
+                      <option value="Nagaland">Nagaland</option>
+                      <option value="Odisha">Odisha</option>
+                      <option value="Punjab">Punjab</option>
+                      <option value="Rajasthan">Rajasthan</option>
+                      <option value="Sikkim">Sikkim</option>
+                      <option value="Tamil Nadu">Tamil Nadu</option>
+                      <option value="Telangana">Telangana</option>
+                      <option value="Tripura">Tripura</option>
+                      <option value="Uttar Pradesh">Uttar Pradesh</option>
+                      <option value="Uttarakhand">Uttarakhand</option>
+                      <option value="West Bengal">West Bengal</option>
+                      <option value="Andaman and Nicobar Islands">Andaman and Nicobar Islands</option>
+                      <option value="Chandigarh">Chandigarh</option>
+                      <option value="Dadra and Nagar Haveli and Daman and Diu">Dadra and Nagar Haveli and Daman and Diu</option>
+                      <option value="Lakshadweep">Lakshadweep</option>
+                      <option value="Delhi">Delhi</option>
+                      <option value="Puducherry">Puducherry</option>
+                      <option value="Ladakh">Ladakh</option>
+                      <option value="Jammu and Kashmir">Jammu and Kashmir</option>
+                    </select>
+                  </div>
+                </div>
 
                 {/* Transaction Summary */}
                 <div className="mb-8 bg-gray-50 p-6 rounded-lg border border-gray-200">
