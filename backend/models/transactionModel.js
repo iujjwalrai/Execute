@@ -48,7 +48,18 @@ const transactionSchema = mongoose.Schema({
     state : {
         type : String,
         required : true
-    }
+    },
+    is_fraud: {
+        type: Boolean,
+        default: false
+    },
+    is_fraud_reported: {
+        type: Boolean,
+        default: false
+    },
+    fraud_score : {
+        type : Number,
+    },
 });
 
 module.exports = mongoose.model("Transaction", transactionSchema);
