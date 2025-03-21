@@ -18,6 +18,23 @@ exports.checkFraud = async (req, res) => {
       payer_id,
       state
     } = req.body;
+    
+
+    let transaction = await Transaction.findOne({ transaction_id });
+
+    if (!transaction) {
+      transaction = await Transaction.create({
+        transaction_id,
+        ip,
+        amount,
+        payment_mode,
+        payment_channel,
+        payee_id,
+        payer_id,
+        state,
+        payment: 'pending'  // Default payment status
+      });
+    }
 
     // Initialize fraud detection variables
     let fraudReason = "No fraud detected";
@@ -181,6 +198,7 @@ exports.checkFraud = async (req, res) => {
       is_fraud: isFraud,
       fraud_reason: fraudReason,
       fraud_score: fraudScore,
+      failed_attempts: failed_attempts
     });
   } catch (error) {
     console.error("Fraud detection error:", error);
