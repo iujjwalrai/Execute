@@ -9,6 +9,7 @@ const jwt = require("jsonwebtoken");
 // const {geminiController} = require("../controllers/geminiController");
 const {checkFraud} = require("../controllers/ruleBasedController"); 
 const transactionController = require('../controllers/transactionController');
+const { updateController } = require("../controllers/updateController");
 // dotenv.config();
 // const upload = multer();  
 // const upload = require("../middlewares/multer");
@@ -54,6 +55,8 @@ router.post("/ruleBased", checkFraud);
 // //     message: "File uploaded successfully"
 // //   });
 // // });
+
+router.post("/update" , updateController);
 
 router.get('/transactions', transactionController.getTransactions);
 
